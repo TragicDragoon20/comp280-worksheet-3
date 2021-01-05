@@ -1,11 +1,13 @@
 \documentclass{article}
 \usepackage[utf8]{inputenc}
+\usepackage[section]{placeins}
 
-\title{Your Title Here}
-\author{Your name and/or student number here}
+\title{COMP280 - Optimisation}
+\author{Callum Metcalfe\\ 1900133}
 
 \usepackage{natbib}
 \usepackage{graphicx}
+\usepackage{hyperref}
 
 \begin{document}
 
@@ -13,22 +15,105 @@
 
 \section{Introduction}
 
-This is the template project for COMP280 worksheet 3(based on COMP110 Assignment 2: Research Journal). Please add additional sections, in addition please include diagrams and screenshots from your profile runs
+During the Plymouth game jam I worked with 3 others to create a game we called Tumble Town. This was a simple game where you play as a tumble weed trying to avoid being shot by cacti whilst escaping their towns.\\
+\newline
+Due to this being a simple game for a game jam it meant that it would likely have many inefficiencies that I could try and improve upon.\\
+\newline
+Link to the repository: \url{https://github.com/TragicDragoon20/PGJ-Untouchable}
 
-\textbf{please insert a URL to the project you are using for optimisation task}
+\section{Performance Profiling}
 
-\section{An example section heading}
+In order to figure out where I need to prioritise optimisation I started the game and played through the second level as it had the majority of mechanics in.\\
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=1\textwidth]{Images/ProfilerBaseLine.jpg}
+    \caption{Profiler Base line}
+    \label{fig:baseline}
+\end{figure}
 
-Use section headings to divide your report into meaningful sections.
+This profiling shows that there isn't a specific area that drastically needs to be focused for optimising. However, since my main involvement with the game was AI I will be focusing on that area mostly. The only area I would like to point out is the small spike on the profiler which was Semaphore.WaitForSignal within Gfx.WaitForPresentOnGfxThread which indicates that the CPU is waiting on the GPU before moving onto the next frame meaning the game is slightly GPU bound at times. The only other spike that I recognised were on scene loads which would obviously happen due to everything being rendered at once. \newline
 
-Use BibTeX to cite your sources. Entries have already been added to \texttt{references.bib} for the papers on the reading list.
-These papers cover topics such as artificial intelligence~\cite{turing1950_intelligence, knuth1975_alphabeta}, programming language design~\cite{dijkstra1968_goto}, crpytography~\cite{rivest1978_rsa}, graphics rendering~\cite{phong1975_illumination}, and collision detection~\cite{gilbert1988_gjk}.
-You will need to add entries to \texttt{references.bib} for the other sources you cite.
+\section{Performance Improvements}
+
+\subsection{Object Pooling}
+The first area I wanted to look into was object pooling as I know that a lot of bullets are spawned throughout each level. Since Object pooling means that the game objects are instantiated on level load it should theoretically improve the performance whilst the game is running. Since no more bullets have to be spawned during run time. An example of how it works can be seen in figure \ref{fig:objectpoolexample}
+
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=1\textwidth]{Images/Object_pool_example1.png}
+    \caption{Object Pool Example \cite{ObjectPool}}
+    \label{fig:objectpoolexample}
+\end{figure} 
+
+You can see my implementation of object pooling in figure \ref{fig:ObjectPooler}\\
+
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=.7\textwidth]{Images/ObjectPooler.jpg}
+    \caption{Object Pooling}
+    \label{fig:ObjectPooler}
+\end{figure}
+
+The only issue I can think of with the current implementation is if there are more bullets fired than the amount in the lists. Whilst this seem unlikely with my game an area this can be changed is by making the list expandable so that when all the bullets are active it would start to instantiate more.\newline
+\\
+After running the profiler after making this change it seems that overall there was not much of change I suspect this to be because In the grand scheme of things I'm not spawning a lot of bullets at once but instead over the duration of the game. An area I find it does help though is close to the end as more bullets are being fired at once compared to elsewhere in the level.I therefore suspect that if I were to either increase the fire rate or have multiple bullets per shot than this would have a larger affect at reducing the time per frame. 
+
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=1\textwidth]{Images/ObjectPool.jpg}
+    \caption{Object Pool Profiler}
+    \label{fig:ObjectPoolProfile}
+\end{figure}
+\newpage
+\subsection{Caching}
+
+An area I realised I could make a small difference is caching some values to reduce how much unity calls those functions.\\
+\newline
+The values I'm wanting to cache are the transform positions since they are being called 2 - 4 times each update as shown in figure \ref{fig:Caching}. In figure \ref{fig:CachingDone} you can see that I changed it so that the script only calls for the player and its location once per run rather than multiple.
+
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=1\textwidth]{Images/caching.jpg}
+    \caption{Caching Values}
+    \label{fig:Caching}
+\end{figure}
+
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=1\textwidth]{Images/cachingDone.jpg}
+    \caption{After Caching}
+    \label{fig:CachingDone}
+\end{figure}
+
+After making the change it once again doesn't show a massive improvement in the time taken per frame. However, when looking at the the number of calls that get the transform and positions of the player and active game object it has halved the number of calls as seen in figures \ref{fig:beforeCalls} and \ref{fig:AfterCalls}
+
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=1\textwidth]{Images/profileCache.jpg}
+    \caption{Caching Profile}
+    \label{fig:Cache Profile}
+\end{figure}
+
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=0.8\textwidth]{Images/cacheBeforeCalls.jpg}
+    \caption{Before Caching Changes}
+    \label{fig:beforeCalls}
+\end{figure}
+
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=0.8\textwidth]{Images/afterCacheCalls.jpg}
+    \caption{After Caching Changes}
+    \label{fig:AfterCalls}
+\end{figure}
 
 \section{Conclusion}
 
-See LearningSpace for the assignment brief, containing information on marking criteria and further guidance.
+Based on the changes I have made I would say for the size of the project it has not improved the efficiency massively. However, if the game were to be expanded upon I believe the changes would help out in the long run.
 
-\bibliographystyle{plain}
+\typeout{}
+\bibliographystyle{plainnat}
 \bibliography{references}
+
 \end{document}
